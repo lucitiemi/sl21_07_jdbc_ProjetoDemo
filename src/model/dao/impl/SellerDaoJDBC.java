@@ -4,7 +4,10 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import db.DB;
 import db.DbException;
@@ -49,8 +52,11 @@ public class SellerDaoJDBC implements SellerDao {
 					+ "FROM seller INNER JOIN department "
 					+ "ON seller.DepartmentId = department.Id "
 					+ "WHERE seller.Id = ?");
+			
 			st.setInt(1, id);
+			
 			rs = st.executeQuery();
+			
 			if (rs.next()) {								// verifica se a consulta trouxe algum resultado. Se sim, instancia os objetos da consulta
 				Department dep = instantiateDepartment(rs);
 				Seller obj = instantiateSeller(rs, dep);
@@ -93,6 +99,50 @@ public class SellerDaoJDBC implements SellerDao {
 	public List<Seller> findAll() {
 		
 		return null;
+	}
+
+
+	@Override
+	public List<Seller> findByDepartment(Department department) {
+		PreparedStatement st = null;
+		ResultSet rs = null;
+		try {
+			st = conn.prepareStatement(
+					"SELECT seller.*,department.Name as DepName "
+					+ "FROM seller INNER JOIN department "
+					+ "ON seller.DepartmentId = department.Id "
+					+ "WHERE DepartmentId = ? "
+					+ "ORDER BY Name");
+			
+			st.setInt(1, department.getId());
+			
+			rs = st.executeQuery();
+			
+			List<Seller> list = new ArrayList<Seller>();	
+			Map<Integer, Department> map = new HashMap<>();		// esse map irá auxiliar na conferencia se esse departamento já foi instanciado
+			
+			while (rs.next()) {									// como essa consulta pode retornar 0 ou mais resultados, implemnta-se um while e o resultado precisa retornar em uma lista
+				
+				Department dep = map.get(rs.getInt("DepartmentId"));
+				
+				if (dep == null) {								// testa se já existe um dep. Se nao existe, instancia-se o Department
+					dep = instantiateDepartment(rs);
+					map.put(rs.getInt("DepartmentId"), dep);
+				}
+				
+				Seller obj = instantiateSeller(rs, dep);
+				list.add(obj);
+			}
+			return list;
+		}
+		catch (SQLException e) {
+			throw new DbException(e.getMessage());
+		}
+		finally {
+			DB.closeStatement(st);
+			DB.closeResultSet(rs);
+		}
+		
 	}
 	
 
